@@ -1,7 +1,7 @@
 import requests
 import time
 from flask import Flask, request
-from twilio.twiml.messaging_response import MessagingResponse, Message
+from twilio.twiml.messaging_response import MessagingResponse
 
 app = Flask(__name__)
 baseurl = 'https://cdn-api.co-vin.in/api/v2/'
@@ -16,7 +16,6 @@ def bot():
     msg = resp.message()
     incoming_msg = request.values.get('Body', '').lower()
     listresp = []
-    msgtoBeSent = ''
     try:
         pincode = int(incoming_msg)
         listresp = cowin(pincode)
