@@ -8,31 +8,45 @@ baseurl = 'https://cdn-api.co-vin.in/api/v2/'
 date = time.localtime()
 datetoday = str(date.tm_mday) + '-'+str(date.tm_mon)+'-' + str(date.tm_year)
 is_num = False
-resp = MessagingResponse()
-msg = resp.message()
 
 
 @app.route('/bot', methods=['POST'])
 def bot():
+    resp = MessagingResponse()
+    msg = resp.message()
     incoming_msg = request.values.get('Body', '').lower()
-
-    responded = False
+    listresp = []
+    msgtoBeSent = ''
     try:
         pincode = int(incoming_msg)
-        print('pincode==>', pincode)
-        cowin(pincode)
+        listresp = cowin(pincode)
+        print('listToStr', listresp)
+        if len(listresp) > 0:
+            for item in listresp:
+                if item['status'] == 200:
+                    available_slot = 'Location: ' + str(item['location'])+'\n'+'Age_Group: ' + str(item['age'])+'\n' + 'Date: ' + str(item['date'])+'\n'+'Slots: ' + str(
+                        item['slots'])+'\n'+'Vaccine: ' + str(item['vaccine'])+'\n' + 'Dose 1: ' + str(item['dose1'])+'\n' + 'Dose 2: ' + str(item['dose2'])+'\n'+'----'
+                    available_slot.join('\n')
+                    print('item ==>', available_slot)
+                    msg.body(available_slot)
+
+                else:
+                    msg.body(item['Error'])
+        else:
+            msg.body('No slots available')
     except ValueError:
-        print('CONVERSION ERROR')
         msg.body('Enter a valid pincode')
     return str(resp)
 
 
 def convertTuple(tup):
-    str = ''.join(tup).replace(' ', '\n')
+    str = ''.join(tup).replace('-', ' - ').replace('PM', 'PM  ')
     return str
 
 
 def cowin(args):
+
+    response = []
     pincode = str(args)
     print('cowin pin', pincode)
     resp = MessagingResponse()
@@ -48,27 +62,26 @@ def cowin(args):
             for center in result['centers']:
                 if center['sessions'][0]['available_capacity'] > 0:
                     for details in center['sessions']:
-                        location = 'Location : ' + \
-                            str(center['name']) + str(center['address'])+'\n'
-                        age = 'Age :' + str(details['min_age_limit'])+'\n'
-                        slot = 'Slot : ' + convertTuple(details['slots'])+'\n'
-                        d1 = str(details['available_capacity_dose1'])+'\n'
-                        d2 = str(details['available_capacity_dose2'])+'\n'
-                        print(location, age, slot, d1, d2)
-                        info = location + age + slot
-                        msg.body('info')
-                        # slots = ('Location :', center['name'] + center['address'], '\n', 'Age Group :', details['min_age_limit'], '\n', 'Slots :',
-                        #          details['slots'], '\n', 'DOSE 1 :', details['available_capacity_dose1'], '\n', 'DOSE 2:', details['available_capacity_dose2'])
-                        # msg.body(info)
+                        response.append({'status': 200,
+                                         'location':
+                                         str(center['name']) +
+                                         str(center['address']),
+                                         'age': str(details['min_age_limit']),
+                                         'date': str(details['date']),
+                                         'slots': convertTuple(details['slots']),
+                                         'vaccine': str(details['vaccine']),
+                                         'dose1': str(details['available_capacity_dose1']),
+                                         'dose2': str(details['available_capacity_dose2'])})
+
         else:
-            msg.body('No Vaccination drive yet')
+            response.append(
+                {'status': 400, 'Error': 'No Vaccination drive yet'})
     else:
         error = r.json()
         err = f'{error["error"]}'
-        print('api res not ok', err)
         msg.body(err)
-
-    return str(resp)
+        response.append({'status': 400, 'Error': err})
+    return response
 
 
 if __name__ == '__main__':
